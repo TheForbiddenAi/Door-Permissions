@@ -1,0 +1,15 @@
+﻿# Default ignored files
+/shelf/
+/workspace.xml
+# Rider ignored files
+/modules.xml
+/contentModel.xml
+/projectSettingsUpdater.xml
+/.idea.DoorPermissions.iml
+# Datasource local storage ignored files
+/../../../../../../../../../../:\Users\Mason\Desktop\Rust Dev\VS Workspace\DoorPermissions\.idea\.idea.DoorPermissions\.idea/dataSources/
+/dataSources.local.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+
+.idea/

@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30523.141
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DoorPermissions", "DoorPermissions\DoorPermissions.csproj", "{DABCACCF-EC88-428F-B1A4-BD7CA059950B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DABCACCF-EC88-428F-B1A4-BD7CA059950B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DABCACCF-EC88-428F-B1A4-BD7CA059950B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DABCACCF-EC88-428F-B1A4-BD7CA059950B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DABCACCF-EC88-428F-B1A4-BD7CA059950B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6CB9DEF8-E5ED-42FC-8E93-BAA5772D1AEC}
+	EndGlobalSection
+EndGlobal
