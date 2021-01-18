@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Oxide.Core.Plugins;
 using UnityEngine;
 using Physics = UnityEngine.Physics;
 
@@ -27,11 +28,14 @@ namespace Oxide.Plugins
         private const string ActivateDoorPerm = "doorpermissions.activatedoor";
         private const string DeactivateDoorPerm = "doorpermissions.deactivatedoor";
         private const string ViewDoorInfoPerm = "doorpermissions.viewdoorinfo";
+        private const string SetDoorNamePerm = "doorpermissions.setdoorname";
         private const string SetTeleportDoorPerm = "doorpermissions.setteleportdoor";
         private const string SetTeleportPointPerm = "doorpermissions.setteleportpoint";
         private const string SetCategoryPerm = "doorpermissions.setcategory";
         private const string SetCategoryNamePerm = "doorpermissions.setcategoryname";
         private const string AddCategoryPermPerm = "doorpermissions.addcategoryperm";
+        private const string RemoveCategoryPermPerm = "doorpermissions.removecategoryperm";
+        private const string DeleteCategoryPerm = "doorpermissions.deletecategoryperm";
 
         private List<string> _zDoorFronts  = new List<string>();
         private List<string> _xDoorFronts  = new List<string>();
@@ -44,9 +48,10 @@ namespace Oxide.Plugins
             Activate,
             Deactivate,
             ViewInfo,
+            SetDoorName,
             SetTeleportDoor,
             CreatingTelePoint,
-            SettingCategory
+            SettingDoorCategory
         }
 
         private string _version;
@@ -65,6 +70,9 @@ namespace Oxide.Plugins
 
             [JsonProperty(PropertyName = "Allow Damage To Locked Doors")]
             public bool AllowDamage = false;
+
+            [JsonProperty(PropertyName = "Should Delete Doors On Category Deletion")]
+            public bool ShouldDeleteDoors = false;
         }
 
         protected override void LoadConfig()
@@ -103,14 +111,18 @@ namespace Oxide.Plugins
                 ["Insufficient Permissions"] = "<color=red>You do not have the required permission to do this action!</color>",
                 ["Invalid Syntax"] = "<color=red>Invalid Syntax:</color> <color=white>{0}</color>",
                 ["Lock Door Syntax"] = "/lockdoor <permissions...> [note: {0} is implied in the permission]",
+                ["Set Door Name Syntax"] = "/setdoorname <name>",
                 ["Set Category Syntax"] = "/setcategory <id>",
                 ["Set Category Name Syntax"] = "/setcategoryname <id> <name>",
                 ["Add Category Perm Syntax"] = "/addcategoryperm <id> <permissions...> [note: {0} is implied in the permission]",
+                ["Remove Category Perm Syntax"] = "/removecategoryperm <id> <permissions...> [note: {0} is implied in the permission]",
+                ["Delete Category Syntax"] = "/deletecategory <id>",
                 ["Entered Locking Process"] = "<color=#00ffffff>Look at a door and, use your primary attack keybind, to lock it, to cancel run /lockdoor!</color>",
                 ["Entered Unlocking Process"] = "<color=#00ffffff>Look at a door and, use your primary attack keybind, to unlock it, to cancel run /unlockdoor!</color>",
                 ["Entered Activation Process"] = "<color=#00ffffff>Look at a door and, use your primary attack keybind, to activate it, to cancel run /activatedoor!</color>",
                 ["Entered Deactivation Process"] = "<color=#00ffffff>Look at a door and, use your primary attack keybind, to deactivate it, to cancel run /deactivatedoor!</color>",
                 ["Entered View Info Process"] = "<color=#00ffffff>Look at a door and, use your primary attack keybind, to view it's information, to cancel run /viewdoorinfo!</color>",
+                ["Entered Set Door Name Process"] = "<color=#00ffffff>Look at a door and, use your primary attack keybind, to set it's name, to cancel run /setdoorname!</color>",
                 ["Entered Set Tele Door Process"] = "<color=#00ffffff>Look at a door and, use your primary attack keybind," +
                                                     " to make it a teleportation door, to cancel run /setteleportdoor!</color>",
                 ["Entered Set Tele Point Process"] = "<color=#00ffffff>Look at a door and, use your primary attack keybind, " +
@@ -121,12 +133,15 @@ namespace Oxide.Plugins
                 ["Door Unlocked"] = "<i>This door is no longer locked to the following permission(s):</i> <color=green>{0}</color>",
                 ["Door Activated"] = "<color=green>This door is now activated!</color>",
                 ["Door Deactivated"] = "<color=green>This door is now</color> <color=red>deactivated</color><color=green>!</color>",
+                ["Set Door Name"] = "<color=green>Successfully changed the door's name to</color> {0}<color=green>!</color>",
                 ["Set Tele Door"] = "<color=green>This door is now a teleportation door!</color>",
                 ["Removed Tele Door"] = "<color=green>This door is no longer a teleportation door!</color>",
                 ["Set Tele Point"] = "<color=green>Set Teleportation Point at</color> {0}",
                 ["Set Category Name"] = "<color=green>Successfully changed category name to</color> {0}<color=green>!</color>",
                 ["Category Locked New Permissions"] = "<i>The given category has been locked to the permission(s):</i> <color=green>{0}</color> <i>(prexisiting permissions still remain)</i>",
-                ["Category Set"] = "<color=green>Successfully changed the category to the category with an id of {0}!</color>",
+                ["Category Set"] = "<color=green>Successfully changed the category to the category with an id of</color> {0}<color=green>!</color>",
+                ["Category Unlocked"] = "<i>The given category is no longer locked to the following permission(s):</i> <color=green>{0}</color>",
+                ["Category Deleted"] = "<color=green>Successfully deleted the category with the id of</color> {0}<color=green>!</color>",
                 ["Exited Process"] = "<color=green>Successfully exited the previous process!</color>",
                 
                 ["Locked To Category Not Door"] = "<color=red>This door is not locked to the permission:</color> <i>{0}<i>, but it's category is! Continuing with remaining permissions.",
@@ -141,11 +156,15 @@ namespace Oxide.Plugins
                 ["Door Already Locked"] = "<color=red>This door is already locked to the permission:</color> {0} </color>continuing with remaining permissions</color>",
                 ["Door Already Activated"] = "<color=red>This door is already activated!</color>",
                 ["Door Already Deactivated"] = "<color=red>This door is already deactivated!</color>",
-                ["Not A Category"] = "<color=red>There is no category with the id {0}!</color>",
+                ["Door Already Has Name"] = "<color=red>This door is already has that name!</color>",
+                ["Not A Category"] = "<color=red>There is no category with the id</color> {0}<color=red>!</color>",
                 ["Not A Number"] = "<color=red>That is not a valid id, ids are only numbers!</color>",
-                ["Already Has Category"] = "<color=red>The selected door already has the category with an id of {0}!</color>",
-                ["Category Already Locked"] = "<color=red>This category is already locked to the permission:</color> {0} </color>continuing with remaining permissions</color>",
-                ["Category Already Has Name"] = "<color=red>That category already has that name!</color>"
+                ["Already Has Category"] = "<color=red>The selected door already has the category with an id of</color> {0}<color=green>!</color>",
+                ["Category Already Locked"] = "<color=red>That category is already locked to the permission:</color> {0} </color>continuing with remaining permissions</color>",
+                ["Category Already Has Name"] = "<color=red>That category already has that name!</color>",
+                ["Can Not Delete Default Category"] = "<color=red>You can not delete the default category!</color>",
+                ["Category Is Not Locked To That Permission"] = "<color=red>That category is not locked to the permission:</color> <i>{0}</i> " +
+                                                            "<color=red>continuing with remaining permissions!</color>",
                 
             }, this);
         }
@@ -174,11 +193,14 @@ namespace Oxide.Plugins
                 ActivateDoorPerm,
                 DeactivateDoorPerm,
                 ViewDoorInfoPerm,
+                SetDoorNamePerm,
                 SetTeleportDoorPerm,
                 SetTeleportPointPerm,
                 SetCategoryPerm,
                 SetCategoryNamePerm,
-                AddCategoryPermPerm
+                AddCategoryPermPerm,
+                RemoveCategoryPermPerm,
+                DeleteCategoryPerm
             );
 
             string dataFileVersion = _configData.DataFileVersion;
@@ -210,7 +232,7 @@ namespace Oxide.Plugins
                 {
                     door.Category = category;
                     RegisterPermissions(door.GetAllPermissions().ToArray());
-                    DoorObject.AddDoor(door);
+                    DoorObject.AddDoors(door);
                 });
 
                 CategoryObject.AddCategory(category);
@@ -512,6 +534,42 @@ namespace Oxide.Plugins
             );
         }
 
+        [ChatCommand("setdoorname")]
+        private void SetDoorNameCommand(BasePlayer player, string command, string[] args)
+        {
+            if (!HasPermissions(player, LockDoorPerm))
+            {
+                player.ChatMessage(GetMessage("Insufficient Permissions", player));
+                return;
+            }
+
+            if (TimerHandler.HasTimer(player) && TimerHandler.GetTimer(player).Action == DoorActions.SetDoorName)
+            {
+                player.ChatMessage(GetMessage("Exited Process", player));
+                TimerHandler.RemoveTimer(player);
+                return;
+            }
+
+            if (args.Length < 1)
+            {
+                string syntax = GetMessage("Set Door Name Syntax", player);
+                player.ChatMessage(GetMessage("Invalid Syntax", player, syntax));
+                return;
+            }
+
+            TimerHandler.RemoveTimer(player);
+            string newName = string.Join(" ", args);
+
+            player.ChatMessage(GetMessage("Entered Set Door Name Process", player));
+
+            TimerHandler timerHandler = new TimerHandler(this,
+                player,
+                DoorActions.SetDoorName,
+                0.1f,
+                SetDoorName(player, newName)
+            );
+        }
+        
         [ChatCommand("setteleportdoor")]
         private void SetTeleportDoorCommand(BasePlayer player, string command, string[] args)
         {
@@ -578,7 +636,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            if (TimerHandler.HasTimer(player) && TimerHandler.GetTimer(player).Action == DoorActions.SettingCategory)
+            if (TimerHandler.HasTimer(player) && TimerHandler.GetTimer(player).Action == DoorActions.SettingDoorCategory)
             {
                 player.ChatMessage(GetMessage("Exited Process", player));
                 TimerHandler.RemoveTimer(player);
@@ -601,7 +659,7 @@ namespace Oxide.Plugins
 
             TimerHandler timerHandler = new TimerHandler(this,
                 player,
-                DoorActions.SettingCategory,
+                DoorActions.SettingDoorCategory,
                 0.1f,
                 SetCategory(player, category)
             );
@@ -679,7 +737,81 @@ namespace Oxide.Plugins
             UpdateCategoryPermissions(category, permissions.ToArray());
             player.ChatMessage(GetMessage("Category Locked New Permissions", player, string.Join(", ", newPerms)));
         }
+        
+        [ChatCommand("removecategoryperm")]
+        private void RemoveCategoryPermCommand(BasePlayer player, string command, string[] args)
+        {
+            if (!HasPermissions(player, RemoveCategoryPermPerm))
+            {
+                player.ChatMessage(GetMessage("Insufficient Permissions", player));
+                return;
+            }
+            
+            if (args.Length < 2)
+            {
+                string syntax = GetMessage("Remove Category Perm Syntax", player, DoorPermPrefix);
+                player.ChatMessage(GetMessage("Invalid Syntax", player, syntax));
+                return;
+            }
+            CategoryObject category = TryGetCategory(player, args[0]);
+            if (category == null) return;
+            
+            List<string> permissions = category.Permissions;
+            
+            List<string> removePerms = args.ToList();
+            removePerms.Remove(args[0]);
+            removePerms = removePerms.Select(str => (DoorPermPrefix + str).ToLower()).ToList();
+            
+            removePerms.RemoveAll(perm =>
+            {
+                if (permissions.Contains(perm)) return false;
+                player.ChatMessage(GetMessage("Category Is Not Locked To That Permission", player, perm));
+                return true;
+            });
 
+            if (removePerms.Count == 0) return;
+
+            permissions.RemoveAll(perm => removePerms.Contains((perm)));
+
+            UpdateCategoryPermissions(category, permissions.ToArray());
+            player.ChatMessage(GetMessage("Category Unlocked", player, string.Join(", ", removePerms)));
+        }
+
+        [ChatCommand("deletecategory")]
+        private void DeleteCategoryCommand(BasePlayer player, string command, string[] args)
+        {
+            if (!HasPermissions(player, DeleteCategoryPerm))
+            {
+                player.ChatMessage(GetMessage("Insufficient Permissions", player));
+                return;
+            }
+            
+            if (args.Length < 1)
+            {
+                string syntax = GetMessage("Delete Category Syntax", player);
+                player.ChatMessage(GetMessage("Invalid Syntax", player, syntax));
+                return;
+            }
+            
+            CategoryObject category = TryGetCategory(player, args[0]);
+            if (category == null) return;
+
+            if (category.Id == 0)
+            {
+                player.ChatMessage(GetMessage("Can Not Delete Default Category", player));
+                return;
+            }
+            
+            if (!_configData.ShouldDeleteDoors)
+            {
+                // 0 is default category
+                category.MoveAllDoors(this, 0);
+            }
+
+            CategoryObject.DeleteCategory(this, category.Id);
+            player.ChatMessage(GetMessage("Category Deleted", player, args[0]));
+        }
+        
         #endregion
 
         #region Door Logic
@@ -736,7 +868,7 @@ namespace Oxide.Plugins
                     return;
                 }
 
-                DoorObject.AddDoor(doorData);
+                DoorObject.AddDoors(doorData);
                 doorData.UpdateDoor(this);
 
                 string permStr = string.Join(", ", newPerms);
@@ -814,7 +946,7 @@ namespace Oxide.Plugins
 
                 Vector3 doorPosition = door.transform.position;
 
-                DoorObject doorData = DoorObject.GetDoorByLocation(doorPosition, this);
+                DoorObject doorData = DoorObject.GetDoorByLocation(doorPosition);
                 if (doorData == null)
                 {
                     player.ChatMessage(GetMessage("Door Not Locked", player));
@@ -854,7 +986,7 @@ namespace Oxide.Plugins
 
                 Vector3 doorPosition = door.transform.position;
 
-                DoorObject doorData = DoorObject.GetDoorByLocation(doorPosition, this);
+                DoorObject doorData = DoorObject.GetDoorByLocation(doorPosition);
                 if (doorData == null)
                 {
                     player.ChatMessage(GetMessage("Door Not Locked", player));
@@ -890,7 +1022,7 @@ namespace Oxide.Plugins
 
                 Vector3 doorPosition = door.transform.position;
 
-                DoorObject doorData = DoorObject.GetDoorByLocation(doorPosition, this);
+                DoorObject doorData = DoorObject.GetDoorByLocation(doorPosition);
                 if (doorData == null)
                 {
                     player.ChatMessage(GetMessage("Door Not Locked", player));
@@ -912,6 +1044,40 @@ namespace Oxide.Plugins
             };
             
             
+        }
+
+        private Action SetDoorName(BasePlayer player, string newName)
+        {
+            return () =>
+            {
+                if (!player.serverInput.IsDown(SelectDoorButton)) return;
+
+                Door door = RetrieveDoorEntity(player);
+                if (door == null) return;
+
+                Vector3 doorPosition = door.transform.position;
+
+                DoorObject doorData = DoorObject.GetDoorByLocation(doorPosition);
+                if (doorData == null)
+                {
+                    player.ChatMessage(GetMessage("Door Not Locked", player));
+                    TimerHandler.RemoveTimer(player);
+                    return;
+                }
+
+                if (doorData.Name.Equals(newName))
+                {
+                    player.ChatMessage(GetMessage("Door Already Has Name", player));
+                    TimerHandler.RemoveTimer(player);
+                    return;
+                }
+
+                doorData.Name = newName;
+                doorData.UpdateDoor(this);
+                
+                player.ChatMessage(GetMessage("Set Door Name", player, newName));
+                TimerHandler.RemoveTimer(player);
+            };
         }
 
         private Action SetTeleDoor(BasePlayer player)
@@ -1028,6 +1194,27 @@ namespace Oxide.Plugins
             public List<DoorObject> Doors { get; set; } = new List<DoorObject>();
             public List<string> Permissions { get; set; } = new List<string>();
 
+            public void MoveAllDoors(DoorPermissions plugin, int id)
+            {
+                CategoryObject category = GetCategoryById(id);
+                if (category == null) return;
+                
+                DoorObject.RemoveDoorsFromCache(Doors.ToArray());
+                Doors.ForEach(door =>
+                {
+                    door.CategoryId = category.Id;
+                    door.Category = category;
+                    
+                });
+                
+                category.Doors.AddRange(Doors);
+
+                Doors.Clear();
+                DoorObject.AddDoorsToCache(plugin, category.Doors.ToArray());
+
+                SaveCategories(plugin, this, category);
+            }
+            
             public static bool CategoryExists(int id)
             {
                 return GetCategoryById(id) != null;
@@ -1043,10 +1230,10 @@ namespace Oxide.Plugins
                 CategoryCache.AddRange(categoryArray);
             }
 
-            public static bool DeleteCategory(DoorPermissions plugin, int id)
+            public static void DeleteCategory(DoorPermissions plugin, int id)
             {
                 CategoryObject category = GetCategoryById(id);
-                if (category == null) return false;
+                if (category == null) return;
                 CategoryCache.Remove(category);
                 
                 List<CategoryObject> newCache = new List<CategoryObject>();
@@ -1064,19 +1251,30 @@ namespace Oxide.Plugins
 
                 CategoryCache.Clear();
                 CategoryCache.AddRange(newCache);
-
-
+                
                 plugin._dataFile["Categories"] = saveDictionary;
                 plugin._dataFile.Save();
-                return true;
+                return;
             }
 
             public void Save(DoorPermissions plugin)
             {
-                CategoryCache.RemoveAll(category => category.Id == Id);
-                CategoryCache.Add(this);
+                SaveCategories(plugin, this);
+            }
 
-                plugin._dataFile["Categories", Id.ToString()] = this;
+            private static void SaveCategories(DoorPermissions plugin, params CategoryObject[] categoryArray)
+            {
+                foreach (CategoryObject category in categoryArray)
+                {
+                    
+                    CategoryCache.RemoveAll(cat => cat.Name.Equals(category.Name));
+                    int catId = category.Id;
+
+                    plugin._dataFile["Categories", catId.ToString()] = category;
+                }
+                
+                CategoryCache.AddRange(categoryArray);
+                
                 plugin._dataFile.Save();
             }
         }
@@ -1089,7 +1287,7 @@ namespace Oxide.Plugins
             public string Name { get; set; } = "Unknown";
             public Vector3 Position { get; set; } = Vector3.zero;
             public bool IsActive { get; set; } = true;
-            public bool IsTeleportationDoor { get; set; } = false;
+            public bool IsTeleportationDoor { get; set; }
             public Vector3 TeleportationEntrance { get; set; } = Vector3.zero;
             public Vector3 TeleportationExit { get; set; } = Vector3.zero;
             public List<string> Permissions { get; set; } = new List<string>();
@@ -1109,7 +1307,7 @@ namespace Oxide.Plugins
                 return DoorCache.FindAll(door => door.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             }
 
-            public static DoorObject GetDoorByLocation(Vector3 position, DoorPermissions plugin = null)
+            public static DoorObject GetDoorByLocation(Vector3 position)
             {
                 /*
                  * Comparing using strings because I had an issue previously where 2 vectors which were equal were
@@ -1119,7 +1317,7 @@ namespace Oxide.Plugins
                 return DoorCache.Find(door => door.Position.ToString().Equals(position.ToString()));
             }
 
-            public static void AddDoor(params DoorObject[] doorArray)
+            public static void AddDoors(params DoorObject[] doorArray)
             {
                 foreach (DoorObject door in doorArray)
                 {
@@ -1127,6 +1325,28 @@ namespace Oxide.Plugins
 
                     if (!doorList.Contains(door)) door.Category.Doors.Add(door);
                     DoorCache.Add(door);
+                }
+            }
+
+            public static void AddDoorsToCache(DoorPermissions plugin, params DoorObject[] doorArray)
+            {
+                // Makes sure there are no duplicates
+                RemoveDoorsFromCache(doorArray);
+                DoorCache.AddRange(doorArray);
+            }
+
+            public static void RemoveDoorsFromCache(params DoorObject[] doorArray)
+            {
+                foreach (DoorObject door in doorArray)
+                {
+                    DoorCache.RemoveAll(otherDoor =>
+                    {
+                        string doorPosition = door.Position.ToString();
+                        string otherDoorPosition = otherDoor.Position.ToString();
+                        
+                        return doorPosition.Equals(otherDoorPosition);
+                    });
+                    
                 }
             }
 
