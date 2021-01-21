@@ -36,7 +36,7 @@ namespace Oxide.Plugins
         private const string SetCategoryNamePerm = "doorpermissions.setcategoryname";
         private const string AddCategoryPermPerm = "doorpermissions.addcategoryperm";
         private const string RemoveCategoryPermPerm = "doorpermissions.removecategoryperm";
-        private const string CreateCategoryPerm = "doorpermissions.createcategoryperm";
+        private const string CreateCategoryPerm = "doorpermissions.createcategory";
         private const string DeleteCategoryPerm = "doorpermissions.deletecategory";
         private const string ViewCategoryInfoPerm = "doorpermissions.viewcategoryinfo";
         private const string ViewCategoriesPerm = "doorpermissions.viewcategories";
